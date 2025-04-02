@@ -4,11 +4,15 @@ import System.Environment (getArgs)
 import System.IO (readFile)
 import Lib
 
+printFileContents :: FilePath -> IO ()
+printFileContents filePath = do
+    content <- readFile filePath
+    putStrLn content
+printFileContents _ = putStrLn "File not found."
+
 main :: IO ()
 main = do
     args <- getArgs
     case args of
-        [fileName] -> do
-            content <- readFile fileName
-            putStrLn $ "File contents:\n" ++ content
+        [fileName] -> printFileContents fileName
         _          -> putStrLn "Usage: program <filename>"
