@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Portfolio>
+    <Stock>
+        <Symbol>AAPL</Symbol>
+        <Name>Apple Inc.</Name>
+        <Shares>50</Shares>
+        <PurchasePrice>145.00</PurchasePrice>
+        <CurrentPrice>150.00</CurrentPrice>
+    </Stock>
+    <Stock>
+        <Symbol>MSFT</Symbol>
+        <Name>Microsoft Corporation</Name>
+        <Shares>30</Shares>
+        <PurchasePrice>250.00</PurchasePrice>
+        <CurrentPrice>260.00</CurrentPrice>
+    </Stock>
+    <Stock>
+        <Symbol>GOOGL</Symbol>
+        <Name>Alphabet Inc.</Name>
+        <Shares>20</Shares>
+        <PurchasePrice>2800.00</PurchasePrice>
+        <CurrentPrice>2900.00</CurrentPrice>
+    </Stock>
+</Portfolio>

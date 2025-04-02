@@ -35,6 +35,7 @@ library
   ghc-options: -Wall -Wcompat -Widentities -Wincomplete-record-updates -Wincomplete-uni-patterns -Wmissing-export-lists -Wmissing-home-modules -Wpartial-fields -Wredundant-constraints
   build-depends:
       base >=4.7 && <5
+    , hxt
   default-language: Haskell2010
 
 executable dividend-portfolio-exe
@@ -49,6 +50,7 @@ executable dividend-portfolio-exe
   build-depends:
       base >=4.7 && <5
     , dividend-portfolio
+    , hxt
   default-language: Haskell2010
 
 test-suite dividend-portfolio-test
@@ -64,4 +66,5 @@ test-suite dividend-portfolio-test
   build-depends:
       base >=4.7 && <5
     , dividend-portfolio
+    , hxt
   default-language: Haskell2010
