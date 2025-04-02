@@ -22,5 +22,6 @@ processXmlToCsv :: ArrowXml a => a XmlTree String
 processXmlToCsv =
     deep (isElem >>> hasName "record") >>>  -- Adjust "record" to match your XML structure
     listA (getChildren >>> getText) >>>
-    arr (intersperse ',' >>> concat)
+    arr (concat . intersperse ",")
+
 
