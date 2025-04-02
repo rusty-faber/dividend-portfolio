@@ -8,6 +8,7 @@ module Lib
 import Control.Arrow
 import Text.XML.HXT.Core
 import Data.List (intercalate)
+import Debug.Trace as Debug
 
 printFileContents :: FilePath -> IO ()
 printFileContents filePath = do
@@ -33,7 +34,17 @@ processXmlToCsv =
         shares <- getChildText "Shares" -< stock
         purchasePrice <- getChildText "PurchasePrice" -< stock
         currentPrice <- getChildText "CurrentPrice" -< stock
+        
         -- デバッグ用出力
+        let debugInfo = unlines
+                [ "Debugging Stock Element:"
+                , "  Symbol: " ++ symbol
+                , "  Name: " ++ name
+                , "  Shares: " ++ shares
+                , "  PurchasePrice: " ++ purchasePrice
+                , "  CurrentPrice: " ++ currentPrice
+                ]
+     --   returnA -< Debug.trace debugInfo (intercalate "," [symbol, name, shares, purchasePrice, currentPrice])
         returnA -< intercalate "," [symbol, name, shares, purchasePrice, currentPrice]
 
 -- 子要素のテキストを取得するヘルパー関数
