@@ -1,6 +1,6 @@
 module Lib
     ( printFileContents,
-      convertXml2CSV
+      convertXml2Csv
     ) where
 
 import Text.XML.HXT.Core
@@ -12,11 +12,10 @@ printFileContents filePath = do
     putStrLn content
 printFileContents _ = putStrLn "File not found."
 
-convertXml2CSV :: FilePath -> FilePath -> IO ()
-convertXml2CSV inputFile outputFile = do
-    runX (readDocument [withValidate no] inputFile
-          >>> processXmlToCsv
-          >>> writeDocument [withOutputEncoding utf8] outputFile)
+convertXml2Csv :: FilePath -> FilePath -> IO ()
+convertXml2Csv inputFile outputFile = do
+    csvData <- runX (readDocument [withValidate no] inputFile >>> processXmlToCsv)
+    writeFile outputFile (unlines csvData)
     return ()
 
 processXmlToCsv :: ArrowXml a => a XmlTree String
