@@ -1,4 +1,5 @@
 {-# LANGUAGE Arrows #-}
+{-# LANGUAGE OverloadedStrings #-}
 
 module Lib
     ( printFileContents,
@@ -6,9 +7,11 @@ module Lib
     ) where
 
 import Control.Arrow
+import Control.Category
 import Text.XML.HXT.Core
 import Data.List (intercalate)
 import Debug.Trace as Debug
+import Control.Exception (try, SomeException)
 
 printFileContents :: FilePath -> IO ()
 printFileContents filePath = do
@@ -17,35 +20,42 @@ printFileContents filePath = do
 
 convertXml2Csv :: FilePath -> FilePath -> IO ()
 convertXml2Csv inputFile outputFile = do
-    debugData <- runX (readDocument [withValidate no, withInputEncoding utf8] inputFile >>> writeDocumentToString [])
-    putStrLn "Debugging XML Content:"
-    mapM_ putStrLn debugData  -- XMLの内容をデバッグ出力
-    csvData <- runX (readDocument [withValidate no, withInputEncoding utf8] inputFile >>> processXmlToCsv)
-    let header = "Symbol,Name,Shares,PurchasePrice,CurrentPrice"
-    writeFile outputFile (unlines (header : csvData))
+    result <- try $
+        runX (readDocument [withValidate no, withInputEncoding utf8] inputFile >>> processXmlToCsv) :: IO (Either SomeException [String])
+    case result of
+        Left ex -> putStrLn $ "Error processing XML file: " ++ show ex
+        Right csvData -> do
+            let header = "Symbol,Name,Shares,PurchasePrice,CurrentPrice"
+            writeFile outputFile (unlines (header : csvData))
+            putStrLn "Debugging CSV Content:"
+            mapM_ putStrLn csvData  -- CSVの内容をデバッグ出力
     return ()
 
 processXmlToCsv :: ArrowXml a => a XmlTree String
 processXmlToCsv =
-    deep (isElem >>> hasName "Stock") >>> 
+    -- deep (isElem >>> hasName "Stock") >>> writeDocumentToString []
+    deep (isElem >>> hasName "Stock") >>>
     proc stock -> do
+        -- symbol <- (isElem >>> hasName "Symbol" >>> getText) -< stock
         symbol <- getChildText "Symbol" -< stock
-        name <- getChildText "Name" -< stock
-        shares <- getChildText "Shares" -< stock
-        purchasePrice <- getChildText "PurchasePrice" -< stock
-        currentPrice <- getChildText "CurrentPrice" -< stock
+        returnA -< "" ++ symbol ++ ","
+    --    symbol <- getChildText "Symbol" -< stock
+    --     name <- getChildText "Name" -< stock
+    --     shares <- getChildText "Shares" -< stock
+    --     purchasePrice <- getChildText "PurchasePrice" -< stock
+    --     currentPrice <- getChildText "CurrentPrice" -< stock
         
-        -- デバッグ用出力
-        let debugInfo = unlines
-                [ "Debugging Stock Element:"
-                , "  Symbol: " ++ symbol
-                , "  Name: " ++ name
-                , "  Shares: " ++ shares
-                , "  PurchasePrice: " ++ purchasePrice
-                , "  CurrentPrice: " ++ currentPrice
-                ]
-     --   returnA -< Debug.trace debugInfo (intercalate "," [symbol, name, shares, purchasePrice, currentPrice])
-        returnA -< intercalate "," [symbol, name, shares, purchasePrice, currentPrice]
+    --     -- デバッグ用出力
+    --     let debugInfo = unlines
+    --             [ "Debugging Stock Element:"
+    --             , "  Symbol: " ++ symbol
+    --             , "  Name: " ++ name
+    --             , "  Shares: " ++ shares
+    --             , "  PurchasePrice: " ++ purchasePrice
+    --             , "  CurrentPrice: " ++ currentPrice
+    --             ]
+    --  --   returnA -< Debug.trace debugInfo (intercalate "," [symbol, name, shares, purchasePrice, currentPrice])
+    --     returnA -< intercalate "," [symbol, name, shares, purchasePrice, currentPrice]
 
 -- 子要素のテキストを取得するヘルパー関数
 getChildText :: ArrowXml a => String -> a XmlTree String
