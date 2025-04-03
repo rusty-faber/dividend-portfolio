@@ -22,6 +22,8 @@ convertXml2Csv :: FilePath -> FilePath -> IO ()
 convertXml2Csv inputFile outputFile = do
     result <- try $
         runX (readDocument [withValidate no, withInputEncoding utf8] inputFile >>> processXmlToCsv) :: IO (Either SomeException [String])
+    -- Debugging: Is an exception occurring during processing?
+    -- デバッグ途中、処理途中で例外が起きている？
     case result of
         Left ex -> putStrLn $ "Error processing XML file: " ++ show ex
         Right csvData -> do
