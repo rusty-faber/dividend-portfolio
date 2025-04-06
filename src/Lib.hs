@@ -3,7 +3,7 @@
 
 module Lib
     ( printFileContents,
-      convertXmlToCsv
+      convertSampleXmlToCsv
     ) where
 
 import Text.XML.HXT.Core
@@ -15,8 +15,8 @@ printFileContents filePath = do
     content <- readFile filePath
     putStrLn content
 
-convertXmlToCsv :: FilePath -> FilePath -> IO ()
-convertXmlToCsv inputFile outputFile = do
+convertSampleXmlToCsv :: FilePath -> FilePath -> IO ()
+convertSampleXmlToCsv inputFile outputFile = do
     result <- try (convertXmlToCsvRunX inputFile) :: IO (Either SomeException [String])
     case result of
         Left ex -> putStrLn $ "Error processing XML file: " ++ show ex

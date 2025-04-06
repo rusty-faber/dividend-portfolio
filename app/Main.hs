@@ -7,15 +7,18 @@ import Lib
 main :: IO ()
 main = do
     args <- getArgs
-    case args of
-        [inputFile, outputFile] -> do
-            inputExists <- doesFileExist inputFile
-            if inputExists
-                then convertXmlToCsv inputFile outputFile
-                else putStrLn $ "Error: Input file " ++ inputFile ++ " does not exist."
-        [filePath] -> do
+    executeCommand args
+    return ()
+    
+executeCommand :: [String] -> IO ()
+executeCommand [inputFile, outputFile] = do
+    inputExists <- doesFileExist inputFile
+    if inputExists
+        then convertSampleXmlToCsv inputFile outputFile
+        else putStrLn $ "Error: Input file " ++ inputFile ++ " does not exist."
+executeCommand [filePath] = do
             fileExists <- doesFileExist filePath
             if fileExists
                 then printFileContents filePath
                 else putStrLn $ "Error: File " ++ filePath ++ " does not exist."
-        _ -> putStrLn "Usage: program <filename> or program <inputFile> <outputFile>"
+executeCommand _ = putStrLn "Usage: program <filename> or program <inputFile> <outputFile>"
