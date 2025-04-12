@@ -14,6 +14,13 @@ import Control.Exception (try, SomeException)
 data TagType = Root | Child deriving (Show, Eq)
 type Tag = (TagType, String)
 
+getTagType :: Tag -> TagType
+getTagType (Child, _) = Child
+getTagType (Root, _) = Root 
+getTagString :: Tag -> String
+getTagString (Root, tagName) = tagName
+getTagString (Child, tagName) = tagName
+
 -- Function to print the contents of a file
 printFileContents :: FilePath -> IO ()
 printFileContents filePath = do
@@ -29,7 +36,7 @@ convertSampleXmlToCsv inputFile outputFile = do
                     (Child,"Shares"),
                     (Child,"PurchasePrice"),
                     (Child,"CurrentPrice")]
-    let header = intercalate "," (map snd (filter (\t -> fst t == Child) tagXML))
+    let header = intercalate "," (map snd (filter (\t -> getTagType t == Child) tagXML))
     result <- try (convertXmlToCsvRunX inputFile tagXML) :: IO (Either SomeException [String])
     case result of
         Left ex -> putStrLn $ "Error processing XML file: " ++ show ex
@@ -51,25 +58,22 @@ writeCsvDocument outputFile header csvData = do
     return ()
 
 -- Function to process XML and extract data as CSV
-processXmlToCsv :: ArrowXml a => [(TagType, String)] -> a XmlTree String
+processXmlToCsv :: ArrowXml a => [Tag] -> a XmlTree String
 processXmlToCsv tagXML =
     case listToMaybe tagXML of
         Nothing -> constA "No tags specified" -- Error message for empty list
         Just (_, rootTagName) -> deep (isElem >>> hasName rootTagName) >>> -- Extract root tag name using pattern matching
             proc rootElement -> do
-                let childTags = map snd (filter (\(tagType, _) -> tagType == Child) tagXML) -- Get list of child tag names
-                childrenTexts <- mapA getChildText childTags -< rootElement
-                returnA -< intercalate "," childrenTexts
+                let childTags = map snd (filter (\t -> getTagType t == Child) tagXML) -- Get list of child tag names
+                childrenTexts <-  getXMLChildrenText ["Symbol","Name"] -< rootElement
+                returnA -< childrenTexts
 
--- Helper function to retrieve the text of a child element
-getChildText :: ArrowXml a => String -> a XmlTree String
-getChildText tagName =
-    getChildren >>> isElem >>> hasName tagName >>> getText
-
--- Helper function to retrieve the text of multiple child elements
-getXMLChildrenText :: ArrowXml a => [String] -> a XmlTree [String]
-getXMLChildrenText tags = mapA getChildText tags
-
--- Helper function to map over a list in the Arrow context
-mapA :: ArrowXml a => (b -> a XmlTree c) -> [b] -> a XmlTree [c]
-mapA f list = sequenceA (map f list)
+getXMLChildrenText :: ArrowXml a => [String] -> a XmlTree String
+getXMLChildrenText childTags =
+    proc rootElement -> do
+        childrenTexts <- listA(foldl1 (<+>) (map (\tag ->
+            getChildren >>>
+            isElem >>>
+            hasName tag >>>
+            xshow getChildren) childTags)) -< rootElement
+        returnA -< intercalate "," childrenTexts
