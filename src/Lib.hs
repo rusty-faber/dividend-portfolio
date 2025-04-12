@@ -7,16 +7,19 @@ module Lib
     ) where
 
 import Text.XML.HXT.Core
-import Data.List (intercalate, uncons)
-import Data.Maybe (fromMaybe, listToMaybe)
+import Data.List (intercalate)
+import Data.Maybe (listToMaybe)
 import Control.Exception (try, SomeException)
 
 data TagType = Root | Child deriving (Show, Eq)
 type Tag = (TagType, String)
 
+-- Function to get the type of a tag (Root or Child)
 getTagType :: Tag -> TagType
 getTagType (Child, _) = Child
 getTagType (Root, _) = Root 
+
+-- Function to get the string value of a tag
 getTagString :: Tag -> String
 getTagString (Root, tagName) = tagName
 getTagString (Child, tagName) = tagName
@@ -36,7 +39,9 @@ convertSampleXmlToCsv inputFile outputFile = do
                     (Child,"Shares"),
                     (Child,"PurchasePrice"),
                     (Child,"CurrentPrice")]
-    let header = intercalate "," (map snd (filter (\t -> getTagType t == Child) tagXML))
+    -- Create the CSV header from the child tags
+    let header = intercalate "," (map getTagString (filter (\t -> getTagType t == Child) tagXML))
+    -- Try to convert the XML file to CSV
     result <- try (convertXmlToCsvRunX inputFile tagXML) :: IO (Either SomeException [String])
     case result of
         Left ex -> putStrLn $ "Error processing XML file: " ++ show ex
@@ -59,21 +64,26 @@ writeCsvDocument outputFile header csvData = do
 
 -- Function to process XML and extract data as CSV
 processXmlToCsv :: ArrowXml a => [Tag] -> a XmlTree String
-processXmlToCsv tagXML =
+processXmlToCsv tagXML = do
+    -- Extract child tag names
+    let childTags = map getTagString (filter (\t -> getTagType t == Child) tagXML)
     case listToMaybe tagXML of
         Nothing -> constA "No tags specified" -- Error message for empty list
-        Just (_, rootTagName) -> deep (isElem >>> hasName rootTagName) >>> -- Extract root tag name using pattern matching
+        Just (_, rootTagName) -> deep (isElem >>> hasName rootTagName) >>>
             proc rootElement -> do
-                let childTags = map snd (filter (\t -> getTagType t == Child) tagXML) -- Get list of child tag names
-                childrenTexts <-  getXMLChildrenText ["Symbol","Name"] -< rootElement
+                -- Extract text from child elements
+                childrenTexts <-  getXMLChildrenText childTags -< rootElement
                 returnA -< childrenTexts
 
+-- Function to extract text from child elements based on tag names
 getXMLChildrenText :: ArrowXml a => [String] -> a XmlTree String
 getXMLChildrenText childTags =
     proc rootElement -> do
+        -- Extract text for each child tag
         childrenTexts <- listA(foldl1 (<+>) (map (\tag ->
             getChildren >>>
             isElem >>>
             hasName tag >>>
             xshow getChildren) childTags)) -< rootElement
+        -- Combine the extracted texts into a single CSV row
         returnA -< intercalate "," childrenTexts

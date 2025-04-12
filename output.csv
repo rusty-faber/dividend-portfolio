@@ -1,4 +1,4 @@
 Symbol,Name,Shares,PurchasePrice,CurrentPrice
-AAPL,Apple Inc.
-MSFT,Microsoft Corporation
-GOOGL,Alphabet Inc.
+AAPL,Apple Inc.,50,145.00,150.00
+MSFT,Microsoft Corporation,30,250.00,260.00
+GOOGL,Alphabet Inc.,20,2800.00,2900.00
