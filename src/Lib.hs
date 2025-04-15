@@ -3,7 +3,12 @@
 
 module Lib
     ( printFileContents,
-      convertSampleXmlToCsv
+      convertSampleXmlToCsv,
+      processXmlToCsv,
+      getTagType,
+      getTagString,
+      TagType(..),
+      Tag,
     ) where
 
 import Text.XML.HXT.Core
