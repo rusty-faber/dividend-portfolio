@@ -2,9 +2,10 @@
 {-# LANGUAGE OverloadedStrings #-}
 
 module Lib
-    ( printFileContents,
-      convertSampleXmlToCsv,
+    ( convertXmlFileToCsv,
       processXmlToCsv,
+      convertSampleXmlToCsv,
+      printFileContents,
       getTagType,
       getTagString,
       TagType(..),
@@ -47,25 +48,15 @@ convertSampleXmlToCsv inputFile outputFile = do
     -- Create the CSV header from the child tags
     let header = intercalate "," (map getTagString (filter (\t -> getTagType t == Child) tagXML))
     -- Try to convert the XML file to CSV
-    result <- try (convertXmlToCsvRunX inputFile tagXML) :: IO (Either SomeException [String])
+    result <- try (convertXmlFileToCsv inputFile tagXML) :: IO (Either SomeException [String])
     case result of
         Left ex -> putStrLn $ "Error processing XML file: " ++ show ex
         Right csvData -> writeCsvDocument outputFile header csvData
 
 -- Function to convert XML to CSV using HXT
-convertXmlToCsvRunX :: FilePath -> [Tag] -> IO [String]
-convertXmlToCsvRunX inputFile tagXML = do
-    csvData <- runX $ readDocument [withValidate no, withRemoveWS yes] inputFile >>> 
-                      processXmlToCsv tagXML
-    return csvData
-
--- Function to write CSV data to a file
-writeCsvDocument :: FilePath -> String -> [String] -> IO ()
-writeCsvDocument outputFile header csvData = do
-    writeFile outputFile (unlines (header : csvData))
-    putStrLn "Debugging CSV Content:"
-    mapM_ putStrLn (header : csvData)  -- Debug output of CSV content
-    return ()
+convertXmlFileToCsv :: FilePath -> [Tag] -> IO [String]
+convertXmlFileToCsv inputFile tagXML = do
+    runX (readDocument [withValidate no, withRemoveWS yes] inputFile >>> processXmlToCsv tagXML)
 
 -- Function to process XML and extract data as CSV
 processXmlToCsv :: ArrowXml a => [Tag] -> a XmlTree String
@@ -92,3 +83,10 @@ getXMLChildrenText childTags =
             xshow getChildren) childTags)) -< rootElement
         -- Combine the extracted texts into a single CSV row
         returnA -< intercalate "," childrenTexts
+
+-- Function to write CSV data to a file
+writeCsvDocument :: FilePath -> String -> [String] -> IO ()
+writeCsvDocument outputFile header csvData = do
+    writeFile outputFile (unlines (header : csvData))
+    putStrLn "Debugging CSV Content:"
+    mapM_ putStrLn (header : csvData)  -- Debug output of CSV content

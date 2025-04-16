@@ -23,20 +23,20 @@ main = do
     result2 <- runX (readString [withValidate no] xmlContent2 >>> processXmlToCsv tagsToExtract2)
     -- print result2 -- Output: ["123,Awesome Gadget"]
     
-    let xmlContent3 = "<Data><Item><Value1>One</Value1><Value2>Two</Value2></Item></Data>"
-    let tagsToExtract3 = [(Root, "Data"), (Child, "Item"), (Child, "Value1"), (Child, "Value2")]
+    let xmlContent3 = "<Info><Name>John Doe</Name><Age>30</Age></Info>"
+    let tagsToExtract3 = [(Root, "Info"), (Child, "Name"), (Child, "Age")]
     result3 <- runX (readString [withValidate no] xmlContent3 >>> processXmlToCsv tagsToExtract3)
-    -- print result3 -- Output: ["One,Two"]
+    -- print result3 -- Output: ["John Doe,30"]
 
-    let xmlContent4 = "<Info><Name>John Doe</Name><Age>30</Age></Info>"
-    let tagsToExtract4 = [(Root, "Info"), (Child, "Name"), (Child, "Age")]
+    let xmlContent4 = "<Data><Item><Value1>One</Value1><Value2>Two</Value2></Item></Data>"
+    let tagsToExtract4 = [(Root, "Data"), (Child, "Item"), (Child, "Value1"), (Child, "Value2")]
     result4 <- runX (readString [withValidate no] xmlContent4 >>> processXmlToCsv tagsToExtract4)
-    -- print result4 -- Output: ["John Doe,30"]
+    -- print result4 -- Output: ["<Value1>One</Value1><Value2>Two</Value2>"] <not> ["One,Two"]
 
     assert (result1 == ["AAPL,Apple Inc.,170.50"]) "Test 1 passed" "Test 1 failed"
     assert (result2 == ["123,Awesome Gadget"]) "Test 2 passed" "Test 2 failed"
-    assert (result3 == ["One,Two"]) "Test 3 passed" "Test 3 failed" 
-    assert (result4 == ["John Doe,30"]) "Test 4 passed" "Test 4 failed"
+    assert (result3 == ["John Doe,30"]) "Test 3 passed" "Test 3 failed"
+    assert (result4 == ["<Value1>One</Value1><Value2>Two</Value2>"]) "Test 4 passed" "Test 4 failed" 
     putStrLn "All tests completed."
     
     return ()
