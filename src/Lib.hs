@@ -2,7 +2,9 @@
 {-# LANGUAGE OverloadedStrings #-}
 
 module Lib
-    ( convertXmlFileToCsv,
+    ( concatenateCsvRows,
+      removeLastColumn,
+      convertXmlFileToCsv,
       processXmlToCsv,
       convertSampleXmlToCsv,
       writeCsvDocument,
@@ -14,6 +16,7 @@ module Lib
     ) where
 
 import Text.XML.HXT.Core
+import Data.List.Split (splitOn)
 import Data.List (intercalate)
 import Data.Maybe (listToMaybe)
 import Control.Exception (try, SomeException)
@@ -36,6 +39,22 @@ printFileContents :: FilePath -> IO ()
 printFileContents filePath = do
     content <- readFile filePath
     putStrLn content
+
+-- Concatenate two CSV files
+concatenateCsvRows :: [String] -> [String] -> [String]
+concatenateCsvRows csvData1 csvData2 =
+  zipWith combineRows csvData1 csvData2
+  where
+    combineRows row1 row2 = intercalate "," [row1, row2]
+
+-- Function to remove the last column from a CSV file
+removeLastColumn :: [String] -> [String]
+removeLastColumn csvData = map removeLastField csvData
+  where
+    removeLastField :: String -> String
+    removeLastField row =
+      let fields = splitOn "," row
+      in intercalate "," (init fields)
 
 -- Function to convert a sample XML file to CSV
 convertSampleXmlToCsv :: FilePath -> FilePath -> IO ()
