@@ -5,6 +5,7 @@ module Lib
     ( convertXmlFileToCsv,
       processXmlToCsv,
       convertSampleXmlToCsv,
+      writeCsvDocument,
       printFileContents,
       getTagType,
       getTagString,
