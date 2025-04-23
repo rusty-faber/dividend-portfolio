@@ -3,7 +3,6 @@ module Main (main) where
 import System.Environment (getArgs)
 import System.Directory (doesFileExist)
 import Data.List (intercalate)
-import Data.Either (isLeft, fromLeft, fromRight)
 import Control.Exception (try, SomeException)
 import Lib
 
@@ -34,37 +33,57 @@ executeCommand _ = putStrLn $
     "<filename>:\n" ++
     "  If only one filename is provided, the program will print the contents of that file.\n"
 
-convertDividendToCsv :: String -> String -> IO ()
-convertDividendToCsv inputFile outputFile = do
-    let tagXMLa = [(Root, "ZLG00100"),
-                             (Child, "ZLG00110"), (Child, "ZLG00120"), (Child, "ZLG00130")
-                             , (Child, "ZLG00140"), (Child, "ZLG00150"), (Child, "ZLG00160")
-                             , (Child, "ZLG00170"), (Child, "ZLG00180"), (Child, "ZLG00190")]
-    let tagXMLb = [(Root, "ZLG00190"),
-                             (Child, "gen:era"),
-                             (Child, "gen:yy"), (Child, "gen:mm"), (Child, "gen:dd")]
-    putStrLn $ "Converting " ++ inputFile ++ " to " ++ outputFile ++ " as CSV."
-    -- Create the CSV header from the child tags
-    let header = intercalate "," (map getTagString (filter (\t -> getTagType t == Child) tagXMLa))
-    -- Try to convert the XML file to CSV
-    resultA <- try (convertXmlFileToCsv inputFile tagXMLa) :: IO (Either SomeException [String])
-    if isLeft resultA
-        then putStrLn $ "Error processing XML file: " ++ show (fromLeft undefined resultA)
-        else do
-            let cvsData0 = fromRight [] resultA
-            let cvsData1 = removeLastColumn cvsData0
-            resultB <- try (convertXmlFileToCsv inputFile tagXMLb) :: IO (Either SomeException [String])
-            if isLeft resultB
-                then putStrLn $ "Error processing XML file: " ++ show (fromLeft undefined resultB)
-                else do
-                    let cvsData2 = fromRight [] resultB
-                    -- Combine the two CSV data lists
-                    let combinedCsvData = concatenateCsvRows cvsData1 cvsData2
-                    -- Write the combined CSV data to the output file
-                    let header2 = header ++ ",yy,mm,dd"
-                    writeCsvDocument outputFile header2 combinedCsvData
-                    return ()
 
+-- Function to extract text content from XML file based on provided tags
+extractXmlData :: FilePath -> [Tag] -> IO (Either SomeException [String])
+extractXmlData filePath tags = try $ convertXmlFileToCsv filePath tags
+
+-- Function to generate CSV header from a list of tags
+generateCsvHeader :: [Tag] -> String
+generateCsvHeader tags = intercalate "," (map getTagString (filter (\t -> getTagType t == Child) tags))
+
+-- Main logic to process dividend data
+processDividendData :: FilePath -> FilePath -> IO ()
+processDividendData inputFile outputFile = do
+  putStrLn $ "Converting " ++ inputFile ++ " to " ++ outputFile ++ " as CSV."
+
+  -- Definition of XML structure A for dividend information
+  let tagsXMLa = [(Root, "ZLG00100"),
+                  (Child, "ZLG00110"), (Child, "ZLG00120"), (Child, "ZLG00130"),
+                  (Child, "ZLG00140"), (Child, "ZLG00150"), (Child, "ZLG00160"),
+                  (Child, "ZLG00170"), (Child, "ZLG00180"), (Child, "ZLG00190")]
+
+  -- Definition of XML structure B for date information
+  let tagsXMLb = [(Root,"ZLG00190"),
+                  (Child,"gen:era"), (Child,"gen:yy"), (Child,"gen:mm"), (Child,"gen:dd")]
+
+  -- Generate CSV header for structure A
+  let headerA = generateCsvHeader tagsXMLa
+
+  -- Extract data using XML structure A
+  resultA <- extractXmlData inputFile tagsXMLa
+  case resultA of
+    Left err -> putStrLn $ "Error processing XML (structure A): " ++ show err
+    Right rawDataA -> do
+      -- Remove the last column from the extracted dividend data
+      let dividendData = removeLastColumn rawDataA
+
+      -- Extract date data using XML structure B
+      resultB <- extractXmlData inputFile tagsXMLb
+      case resultB of
+        Left err -> putStrLn $ "Error processing XML (structure B - date): " ++ show err
+        Right dateData -> do
+          -- Combine the extracted dividend data and date data
+          let combinedData = concatenateCsvRows dividendData dateData
+          -- Create the final CSV header by combining header A and date fields
+          let header = headerA ++ ",yy,mm,dd"
+          -- Write the combined CSV data to the output file
+          writeCsvDocument outputFile header combinedData
+          putStrLn $ "Successfully converted " ++ inputFile ++ " to " ++ outputFile
+
+-- Top-level function to convert dividend data from XML to CSV
+convertDividendToCsv :: String -> String -> IO ()
+convertDividendToCsv inputFile outputFile = processDividendData inputFile outputFile
 
 convertInToOut :: (String -> String -> IO ()) -> String -> String -> IO ()
 convertInToOut printFunc inputFile outputFile = do
