@@ -3,6 +3,8 @@ module Main (main) where
 import System.Environment (getArgs)
 import System.Directory (doesFileExist)
 import Data.List (intercalate)
+import Data.List.Split (splitOn)
+import Data.Maybe (mapMaybe)
 import Control.Exception (try, SomeException)
 import Lib
 
@@ -73,8 +75,10 @@ processDividendData inputFile outputFile = do
       case resultB of
         Left err -> putStrLn $ "Error processing XML (structure B - date): " ++ show err
         Right dateData -> do
+          -- Convert date data to Western years
+          let westernDateData = convertDateStringsToWesternString dateData
           -- Combine the extracted dividend data and date data
-          let combinedData = concatenateCsvRows dividendData dateData
+          let combinedData = concatenateCsvRows dividendData westernDateData
           -- Create the final CSV header by combining header A and date fields
           let header = headerA ++ ",yy,mm,dd"
           -- Write the combined CSV data to the output file
@@ -103,3 +107,38 @@ printFile printFunc filePath = do
         then printFunc filePath
         else putStrLn $ "Error: File " ++ filePath ++ " does not exist."
     return ()
+
+-- Maps Japanese era codes to their corresponding Western start years.
+-- Era codes: 1: Meiji, 2: Taisho, 3: Showa, 4: Heisei, 5: Reiwa
+eraStartYears :: [(Int, Int)]
+eraStartYears =
+  [ (1, 1867)  -- Meiji
+  , (2, 1911)  -- Taisho
+  , (3, 1925)  -- Showa
+  , (4, 1988)  -- Heisei
+  , (5, 2018)  -- Reiwa
+  ]
+
+-- A function to parse a string in the format "era,yy,mm,dd" into a date tuple (era, year, month, day).
+-- Returns Nothing if parsing fails.
+parseEraDate :: String -> Maybe (Int, Int, Int, Int)
+parseEraDate str = case map read (splitOn "," str) of
+  [era, yy, mm, dd] -> Just (era, yy, mm, dd)
+  _                 -> Nothing
+
+-- A function to convert a Japanese era date (era, year, month, day) to a Western date string "yyyy,mm,dd".
+-- Returns Nothing if the era code is not recognized.
+eraToWesternString :: (Int, Int, Int, Int) -> Maybe String
+eraToWesternString (era, yy, mm, dd) =
+  case lookup era eraStartYears of
+    Just startYear -> Just (show (startYear + yy) ++ "," ++ show mm ++ "," ++ show dd)
+    Nothing        -> Nothing
+
+-- The main function to convert a list of date strings to a list of Western date strings.
+-- Fails to convert an entry, that entry is omitted from the result.
+convertDateStringsToWesternString :: [String] -> [String]
+convertDateStringsToWesternString = mapMaybe convertSingleDate
+
+-- A helper function that combines parsing and conversion for a single date string.
+convertSingleDate :: String -> Maybe String
+convertSingleDate s = parseEraDate s >>= eraToWesternString
