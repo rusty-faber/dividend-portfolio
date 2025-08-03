@@ -35,7 +35,6 @@ executeCommand _ = putStrLn $
     "<filename>:\n" ++
     "  If only one filename is provided, the program will print the contents of that file.\n"
 
-
 -- Function to extract text content from XML file based on provided tags
 extractXmlData :: FilePath -> [Tag] -> IO (Either SomeException [String])
 extractXmlData filePath tags = try $ convertXmlFileToCsv filePath tags
@@ -43,6 +42,21 @@ extractXmlData filePath tags = try $ convertXmlFileToCsv filePath tags
 -- Function to generate CSV header from a list of tags
 generateCsvHeader :: [Tag] -> String
 generateCsvHeader tags = intercalate "," (map getTagString (filter (\t -> getTagType t == Child) tags))
+
+convertHeaderZToHeader :: String -> String
+convertHeaderZToHeader headerZ =
+  let mapping = [ ("ZLG00110", "Category")
+                , ("ZLG00120", "Company")
+                , ("ZLG00130", "Shares")
+                , ("ZLG00140", "TaxableGain")
+                , ("ZLG00150", "WithholdingTax")
+                , ("ZLG00160", "LocalTax")
+                , ("ZLG00170", "taxA")
+                , ("ZLG00180", "taxB")
+                , ("ZLG00190", "Year,Month,Day")
+                ]
+      convertTag tag = maybe tag id (lookup tag mapping)
+  in intercalate "," $ map convertTag (splitOn "," headerZ)
 
 -- Main logic to process dividend data
 processDividendData :: FilePath -> FilePath -> IO ()
@@ -60,7 +74,8 @@ processDividendData inputFile outputFile = do
                   (Child,"gen:era"), (Child,"gen:yy"), (Child,"gen:mm"), (Child,"gen:dd")]
 
   -- Generate CSV header for structure A
-  let headerA = generateCsvHeader tagsXMLa
+  let headerZ = generateCsvHeader tagsXMLa
+  let header = convertHeaderZToHeader headerZ
 
   -- Extract data using XML structure A
   resultA <- extractXmlData inputFile tagsXMLa
@@ -68,7 +83,9 @@ processDividendData inputFile outputFile = do
     Left err -> putStrLn $ "Error processing XML (structure A): " ++ show err
     Right rawDataA -> do
       -- Remove the last column from the extracted dividend data
-      let dividendData = removeLastColumn rawDataA
+      let dividendDataRaw = removeLastColumn rawDataA
+      -- Remove Japanese characters and Zenkaku spaces from the dividend data
+      let dividendData = removeZenkakuSpace dividendDataRaw
 
       -- Extract date data using XML structure B
       resultB <- extractXmlData inputFile tagsXMLb
@@ -79,8 +96,6 @@ processDividendData inputFile outputFile = do
           let westernDateData = convertDateStringsToWesternString dateData
           -- Combine the extracted dividend data and date data
           let combinedData = concatenateCsvRows dividendData westernDateData
-          -- Create the final CSV header by combining header A and date fields
-          let header = headerA ++ ",yy,mm,dd"
           -- Write the combined CSV data to the output file
           writeCsvDocument outputFile header combinedData
           putStrLn $ "Successfully converted " ++ inputFile ++ " to " ++ outputFile
@@ -142,3 +157,7 @@ convertDateStringsToWesternString = mapMaybe convertSingleDate
 -- A helper function that combines parsing and conversion for a single date string.
 convertSingleDate :: String -> Maybe String
 convertSingleDate s = parseEraDate s >>= eraToWesternString
+
+--  Function to remove Zenkaku spaces (0x3000) from a list of strings.
+removeZenkakuSpace :: [String] -> [String]
+removeZenkakuSpace = map (filter (/= '\x3000'))
