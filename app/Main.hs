@@ -58,6 +58,67 @@ convertHeaderZToHeader headerZ =
       convertTag tag = maybe tag id (lookup tag mapping)
   in intercalate "," $ map convertTag (splitOn "," headerZ)
 
+-- Function to extract C1 and C2 data and append to the end of combinedData
+appendC1C2ToCombinedData :: FilePath -> [String] -> IO [String]
+appendC1C2ToCombinedData inputFile combinedData = do
+  -- Tag definitions
+  let tagsXMLd = [(Root,"ZLB00000"),
+                  (Child,"gen:era"), (Child,"gen:yy"), (Child,"gen:mm"), (Child,"gen:dd")]
+  let tagsXMLc1 = [(Root, "ZLF00010"),
+                  (Child, "ZLF00020"), (Child, "ZLF00030"), (Child, "ZLF00040")]
+  let tagsXMLc2 = [(Root, "ZLF00050"),
+                  (Child, "ZLF00060"), (Child, "ZLF00080"), (Child, "ZLF00100")]
+
+  -- Fetch and convert date data
+  resultD <- extractXmlData inputFile tagsXMLd
+  westernDateData <- case resultD of
+    Left err -> do
+      putStrLn $ "Error processing XML (structure D - date): " ++ show err
+      return []
+    Right rawDataD -> do
+      let wd = convertDateStringsToWesternString rawDataD
+      putStrLn "=== resultD1 ==="
+      mapM_ putStrLn wd
+      return wd
+
+  -- Fetch C1 data
+  resultC1 <- extractXmlData inputFile tagsXMLc1
+  rawDataC1 <- case resultC1 of
+    Left errC1 -> do
+      putStrLn $ "Error processing XML (structure C1): " ++ show errC1
+      return []
+    Right d -> do
+      putStrLn "=== resultC1 ==="
+      mapM_ putStrLn d
+      return d
+
+  -- Fetch C2 data
+  resultC2 <- extractXmlData inputFile tagsXMLc2
+  filteredC2 <- case resultC2 of
+    Left errC2 -> do
+      putStrLn $ "Error processing XML (structure C2): " ++ show errC2
+      return []
+    Right d -> do
+      putStrLn "=== resultC2 ==="
+      mapM_ putStrLn d
+      -- Handle case where C2 value comes as a single comma-separated string;
+      -- normalize to the expected element list and then extract the 1st and 3rd elements
+      let items = case d of
+                    [single] | ',' `elem` single -> splitOn "," single
+                    _ -> d
+          filteredC2 = case items of
+                         (x:_:z:_) -> [x, z]
+                         [x]       -> [x]
+                         _         -> []
+      return filteredC2
+
+  -- Data composition
+  let combinedRow = intercalate "," $
+        ["分離課税", "上場株式等に係る譲渡所得等の金額"]
+        ++ filteredC2 ++ rawDataC1 ++["0"] ++ westernDateData
+
+  return (combinedData ++ [combinedRow])
+
 -- Main logic to process dividend data
 processDividendData :: FilePath -> FilePath -> IO ()
 processDividendData inputFile outputFile = do
@@ -69,8 +130,8 @@ processDividendData inputFile outputFile = do
                   (Child, "ZLG00140"), (Child, "ZLG00150"), (Child, "ZLG00160"),
                   (Child, "ZLG00170"), (Child, "ZLG00180"), (Child, "ZLG00190")]
 
-  -- Definition of XML structure B for date information
-  let tagsXMLb = [(Root,"ZLG00190"),
+  -- Definition of XML structure D for date information
+  let tagsXMLd = [(Root,"ZLG00190"),
                   (Child,"gen:era"), (Child,"gen:yy"), (Child,"gen:mm"), (Child,"gen:dd")]
 
   -- Generate CSV header for structure A
@@ -84,20 +145,24 @@ processDividendData inputFile outputFile = do
     Right rawDataA -> do
       -- Remove the last column from the extracted dividend data
       let dividendDataRaw = removeLastColumn rawDataA
-      -- Remove Japanese characters and Zenkaku spaces from the dividend data
+      -- Remove zenkaku spaces from the dividend data
       let dividendData = removeZenkakuSpace dividendDataRaw
 
-      -- Extract date data using XML structure B
-      resultB <- extractXmlData inputFile tagsXMLb
-      case resultB of
-        Left err -> putStrLn $ "Error processing XML (structure B - date): " ++ show err
+      -- Extract date data using XML structure D
+      resultD <- extractXmlData inputFile tagsXMLd
+      case resultD of
+        Left err -> putStrLn $ "Error processing XML (structure D - date): " ++ show err
         Right dateData -> do
           -- Convert date data to Western years
           let westernDateData = convertDateStringsToWesternString dateData
           -- Combine the extracted dividend data and date data
           let combinedData = concatenateCsvRows dividendData westernDateData
+
+          -- Append C1 and C2 data to the end of combinedData
+          combinedData' <- appendC1C2ToCombinedData inputFile combinedData
+
           -- Write the combined CSV data to the output file
-          writeCsvDocument outputFile header combinedData
+          writeCsvDocument outputFile header combinedData'
           putStrLn $ "Successfully converted " ++ inputFile ++ " to " ++ outputFile
 
 -- Top-level function to convert dividend data from XML to CSV
@@ -139,6 +204,8 @@ eraStartYears =
 parseEraDate :: String -> Maybe (Int, Int, Int, Int)
 parseEraDate str = case map read (splitOn "," str) of
   [era, yy, mm, dd] -> Just (era, yy, mm, dd)
+  [era, yy] -> Just (era, yy, 1, 1)  -- Default month and day if not provided
+  [era] -> Just (era, 0, 1, 1)  -- Default year, month, and day if not provided
   _                 -> Nothing
 
 -- A function to convert a Japanese era date (era, year, month, day) to a Western date string "yyyy,mm,dd".
