@@ -43,8 +43,8 @@ fetchXmlList input tags label = do
       putStrLn $ "Error processing XML (" ++ label ++ "): " ++ show err
       return []
     Right xs -> do
-      putStrLn $ "=== " ++ label ++ " ==="
-      mapM_ putStrLn xs
+      -- putStrLn $ "=== " ++ label ++ " ==="
+      -- mapM_ putStrLn xs
       return xs
 
 generateCsvHeader :: [Tag] -> String
